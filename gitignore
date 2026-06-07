@@ -1,0 +1,27 @@
+# === Keji Pharmacy CEO Dashboard — .gitignore ===
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.production
+.env.*
+!.env.template
+
+# Dependencies
+node_modules/
+
+# Build output — Vercel generates this itself
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite
+*.local
