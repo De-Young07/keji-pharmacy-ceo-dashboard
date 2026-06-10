@@ -65,7 +65,8 @@ export async function login(email, password) {
   const form = new URLSearchParams({ username: email, password });
   let res;
   try {
-    res = await fetch(`${BASE}/auth/login`, {
+    // 👇 Added /api to match your backend's routing prefix
+    res = await fetch(`${BASE}/api/auth/login`, {
       method:  "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body:    form,
