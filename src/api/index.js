@@ -65,8 +65,7 @@ export async function login(email, password) {
   const form = new URLSearchParams({ username: email, password });
   let res;
   try {
-    // 👇 Added /api to match your backend's routing prefix
-    res = await fetch(`${BASE}/api/auth/login`, {
+    res = await fetch(`${BASE}/auth/login`, {
       method:  "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body:    form,
@@ -102,5 +101,16 @@ export function getCategoryPerf(dateFrom = null, dateTo = null) {
 // Inventory
 export const getExpiryAlerts = (days = 90)    => get(`/inventory/expiry-alerts?days=${days}`);
 export const getProducts     = (q = "")       => get(`/inventory/products?q=${encodeURIComponent(q)}`);
-export const updateBatchPrice = (batchId, price, reason = "") =>
-  put(`/inventory/batches/${batchId}/price`, { new_selling_price: price, reason });
+
+// v2b: updates all 5 price tiers, not just the base price.
+// tiers = { retail_general, retail_subsidized, wholesale_general, wholesale_subsidized, wholesale_bulk }
+export const updateBatchPrice = (batchId, tiers, reason = "") =>
+  put(`/inventory/batches/${batchId}/price`, {
+    new_selling_price:              tiers.retail_general ?? tiers,
+    new_price_retail_general:       tiers.retail_general       ?? null,
+    new_price_retail_subsidized:    tiers.retail_subsidized    ?? null,
+    new_price_wholesale_general:    tiers.wholesale_general    ?? null,
+    new_price_wholesale_subsidized: tiers.wholesale_subsidized ?? null,
+    new_price_wholesale_bulk:       tiers.wholesale_bulk       ?? null,
+    reason,
+  });
