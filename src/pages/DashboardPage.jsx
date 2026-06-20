@@ -224,13 +224,13 @@ export default function DashboardPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function savePrice(batchId, productName) {
-    const price = parseFloat(priceEdits[batchId]);
-    if (!price || price <= 0) { toast.error("Enter a valid price."); return; }
+  async function savePrice(batchId, productName, tiers) {
+    const hasAny = Object.values(tiers).some(v => v !== "" && v != null);
+    if (!hasAny) { toast.error("Enter at least one price."); return; }
     try {
-      await api.updateBatchPrice(batchId, price, "CEO remote update");
+      await api.updateBatchPrice(batchId, tiers, "CEO remote update");
       setSavedPrices(s => ({ ...s, [batchId]: true }));
-      toast.success(`${productName} price updated. Syncing to store…`);
+      toast.success(`${productName} prices updated. Syncing to store…`);
       setTimeout(() => setSavedPrices(s => { const n={...s}; delete n[batchId]; return n; }), 3000);
     } catch (err) {
       toast.error(err.message);
@@ -422,28 +422,62 @@ export default function DashboardPage() {
                   </div>
                   <div className="section-body">
                     {products.filter(p => p.active_batch_id).map(p => {
-                      const editVal  = priceEdits[p.active_batch_id] ?? p.current_selling_price;
-                      const isSaved  = savedPrices[p.active_batch_id];
-                      const margin   = editVal && p.current_cost_price
-                        ? Math.round(((editVal - p.current_cost_price) / editVal) * 100) : 0;
+                      const bid = p.active_batch_id;
+                      const edits = priceEdits[bid] || {};
+                      const isSaved = savedPrices[bid];
+
+                      const tierFields = [
+                        ["retail_general",       "Retail · General",       p.price_retail_general],
+                        ["retail_subsidized",    "Retail · Subsidized",    p.price_retail_subsidized],
+                        ["wholesale_general",    "Wholesale · General",    p.price_wholesale_general],
+                        ["wholesale_subsidized", "Wholesale · Subsidized", p.price_wholesale_subsidized],
+                        ["wholesale_bulk",       "Wholesale · Bulk",       p.price_wholesale_bulk],
+                      ];
+
+                      const baseVal = edits.retail_general ?? p.price_retail_general ?? p.current_selling_price;
+                      const margin  = baseVal && p.current_cost_price
+                        ? Math.round(((baseVal - p.current_cost_price) / baseVal) * 100) : 0;
+
                       return (
-                        <div key={p.product_id} className="price-row">
+                        <div key={p.product_id} className="price-row" style={{ flexDirection:"column", alignItems:"stretch", gap:8 }}>
                           <div className="price-info">
                             <div className="price-name">{p.brand_name} {p.strength}</div>
                             <div className="price-batch">
                               {p.active_batch_number} · <span style={{ color: margin>=20?"var(--green)":"var(--red)", fontWeight:700 }}>{margin}% margin</span>
                             </div>
                           </div>
-                          <input
-                            className="price-input"
-                            type="number"
-                            step="0.01"
-                            value={editVal || ""}
-                            onChange={e => setPriceEdits(prev => ({ ...prev, [p.active_batch_id]: e.target.value }))}
-                          />
+
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                            {tierFields.map(([key, label, currentVal]) => (
+                              <div key={key} style={{ display:"flex", flexDirection:"column", gap:2 }}>
+                                <span style={{ fontSize:9, color:"var(--ink-3)", fontWeight:600 }}>{label}</span>
+                                <input
+                                  className="price-input"
+                                  type="number"
+                                  step="0.01"
+                                  placeholder={currentVal ? `₦${currentVal}` : "Not set"}
+                                  value={edits[key] ?? ""}
+                                  onChange={e => setPriceEdits(prev => ({
+                                    ...prev,
+                                    [bid]: { ...prev[bid], [key]: e.target.value }
+                                  }))}
+                                />
+                              </div>
+                            ))}
+                          </div>
+
                           {isSaved
-                            ? <span className="price-saved">✓ Sent</span>
-                            : <button className="price-save" onClick={() => savePrice(p.active_batch_id, p.brand_name)}>Save</button>
+                            ? <span className="price-saved">✓ Sent to store</span>
+                            : <button className="price-save" style={{ width:"100%" }}
+                                onClick={() => savePrice(bid, p.brand_name, {
+                                  retail_general:       edits.retail_general       ? parseFloat(edits.retail_general)       : undefined,
+                                  retail_subsidized:    edits.retail_subsidized    ? parseFloat(edits.retail_subsidized)    : undefined,
+                                  wholesale_general:    edits.wholesale_general    ? parseFloat(edits.wholesale_general)    : undefined,
+                                  wholesale_subsidized: edits.wholesale_subsidized ? parseFloat(edits.wholesale_subsidized) : undefined,
+                                  wholesale_bulk:       edits.wholesale_bulk       ? parseFloat(edits.wholesale_bulk)       : undefined,
+                                })}>
+                                Save All Prices
+                              </button>
                           }
                         </div>
                       );
