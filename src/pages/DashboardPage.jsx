@@ -136,6 +136,30 @@ const S = `
   .price-input { width:90px; height:28px; padding:0 6px; border:1.5px solid var(--border); border-radius:5px; font-family:var(--font-data); font-size:11px; color:var(--ink); background:var(--surface); outline:none; flex-shrink:0; }
   .price-input:focus { border-color:var(--teal-light); }
   .price-save { height:28px; padding:0 10px; border-radius:5px; border:1px solid var(--teal); background:var(--teal-dim); font-family:var(--font-ui); font-size:10px; font-weight:700; color:var(--teal); cursor:pointer; flex-shrink:0; transition:all .12s; }
+  .add-drug-btn { height:28px; padding:0 12px; border-radius:5px; border:1px solid var(--blue); background:rgba(59,130,246,0.1); font-family:var(--font-ui); font-size:10px; font-weight:700; color:var(--blue); cursor:pointer; }
+  .add-drug-btn:hover { background:var(--blue); color:#fff; }
+
+  /* Add New Drug modal */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:200; padding:16px; }
+  .modal-box { background:var(--white); border-radius:12px; width:100%; max-width:440px; box-shadow:0 20px 50px rgba(0,0,0,.3); }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); }
+  .modal-title { font-size:14px; font-weight:700; color:var(--ink); }
+  .modal-close { background:none; border:none; font-size:20px; color:var(--ink-3); cursor:pointer; line-height:1; padding:0 4px; }
+  .modal-body { padding:16px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+  .form-group { margin-bottom:12px; }
+  .form-row .form-group { margin-bottom:0; }
+  .label { display:block; font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:4px; }
+  .opt-tag { font-weight:400; color:var(--ink-3); font-size:9px; }
+  .input, .select {
+    width:100%; height:36px; padding:0 10px; border-radius:7px;
+    border:1.5px solid var(--border); font-family:var(--font-ui); font-size:12px; color:var(--ink);
+    background:var(--white); transition:border-color .12s;
+  }
+  .input:focus, .select:focus { outline:none; border-color:var(--teal); }
+  .btn { border:none; border-radius:8px; font-family:var(--font-ui); font-weight:700; cursor:pointer; transition:opacity .12s; }
+  .btn-primary { background:var(--teal); color:#fff; font-size:13px; }
+  .btn-primary:disabled { opacity:.6; cursor:not-allowed; }
   .price-save:hover { background:var(--teal); color:#fff; }
   .price-saved { font-size:10px; font-weight:700; color:var(--green); flex-shrink:0; }
 
@@ -191,6 +215,58 @@ export default function DashboardPage() {
   // Price edits: { batchId: newPrice }
   const [priceEdits,  setPriceEdits]  = useState({});
   const [savedPrices, setSavedPrices] = useState({});
+
+  // Add New Drug modal
+  const [showAddDrug,    setShowAddDrug]    = useState(false);
+  const [drugCategories, setDrugCategories] = useState([]);
+  const [addingDrug,     setAddingDrug]     = useState(false);
+  const [newDrug, setNewDrug] = useState({
+    brand_name:"", generic_name:"", strength:"", form:"Tablet",
+    composition:"", category_id:"", category_name:"",
+    unit_of_measure:"piece", requires_prescription:false,
+    min_stock_alert:10, nafdac_number:"",
+  });
+  const setND = k => e => setNewDrug(d => ({ ...d, [k]: e.target?.value ?? e }));
+
+  useEffect(() => {
+    if (showAddDrug) api.getCategories().then(setDrugCategories).catch(() => {});
+  }, [showAddDrug]);
+
+  async function submitNewDrug(e) {
+    e.preventDefault();
+    if (!newDrug.brand_name || !newDrug.generic_name || !newDrug.form) {
+      toast.error("Brand name, generic name and form are required."); return;
+    }
+    if (!newDrug.category_id && !newDrug.category_name) {
+      toast.error("Select an existing category or type a new one."); return;
+    }
+    setAddingDrug(true);
+    try {
+      const created = await api.createProduct({
+        brand_name: newDrug.brand_name,
+        generic_name: newDrug.generic_name,
+        strength: newDrug.strength || null,
+        form: newDrug.form,
+        composition: newDrug.composition || null,
+        category_id: newDrug.category_id || null,
+        category_name: newDrug.category_id ? null : newDrug.category_name,
+        unit_of_measure: newDrug.unit_of_measure,
+        requires_prescription: newDrug.requires_prescription,
+        min_stock_alert: Number(newDrug.min_stock_alert) || 10,
+        nafdac_number: newDrug.nafdac_number || null,
+      });
+      toast.success(`${created.brand_name} added. The store will see it once they receive stock against it.`);
+      const cats = await api.getCategories();
+      setDrugCategories(cats);
+      setShowAddDrug(false);
+      setNewDrug({ brand_name:"", generic_name:"", strength:"", form:"Tablet",
+        composition:"", category_id:"", category_name:"",
+        unit_of_measure:"piece", requires_prescription:false,
+        min_stock_alert:10, nafdac_number:"" });
+    } catch (err) {
+      toast.error(err.message);
+    } finally { setAddingDrug(false); }
+  }
 
   function rangeParams() {
     const now = new Date(), iso = d => d.toISOString().slice(0,10);
@@ -418,7 +494,7 @@ export default function DashboardPage() {
                 <div className="section">
                   <div className="section-hdr">
                     <span className="section-title">Price Controls</span>
-                    <span style={{ fontSize:9, color:"var(--ink-3)", fontFamily:"var(--font-data)" }}>syncs in ~60s</span>
+                    <button className="add-drug-btn" onClick={() => setShowAddDrug(true)}>+ New Drug</button>
                   </div>
                   <div className="section-body">
                     {products.filter(p => p.active_batch_id).map(p => {
@@ -548,6 +624,106 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* ── Add New Drug Modal ── */}
+      {showAddDrug && (
+        <div className="overlay" onClick={() => setShowAddDrug(false)}>
+          <div className="modal-box" style={{ width:440, maxHeight:"85vh", overflowY:"auto" }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Add New Drug to Catalog</span>
+              <button className="modal-close" onClick={() => setShowAddDrug(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={submitNewDrug}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Brand Name *</label>
+                    <input className="input" placeholder="e.g. Panadol Extra"
+                      value={newDrug.brand_name} onChange={setND("brand_name")} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Generic Name *</label>
+                    <input className="input" placeholder="e.g. Paracetamol"
+                      value={newDrug.generic_name} onChange={setND("generic_name")} required />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Strength <span className="opt-tag">optional</span></label>
+                    <input className="input" placeholder="e.g. 500mg"
+                      value={newDrug.strength} onChange={setND("strength")} />
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Form *</label>
+                    <select className="select" value={newDrug.form} onChange={setND("form")} required>
+                      {["Tablet","Capsule","Syrup","Suspension","Injection","Cream","Ointment","Drops","Sachet","Suppository","Inhaler","Other"].map(f =>
+                        <option key={f} value={f}>{f}</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="label">Full Composition / Constituents <span className="opt-tag">optional</span></label>
+                  <input className="input" placeholder="e.g. Paracetamol 500mg + Caffeine 65mg per tablet"
+                    value={newDrug.composition} onChange={setND("composition")} />
+                </div>
+
+                <div className="form-group">
+                  <label className="label">Category *</label>
+                  <select className="select" value={newDrug.category_id}
+                    onChange={e => setNewDrug(d => ({ ...d, category_id: e.target.value, category_name:"" }))}>
+                    <option value="">— Select existing category —</option>
+                    {drugCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <div style={{ fontSize:9, color:"var(--ink-3)", margin:"6px 0 4px" }}>or type a new category below</div>
+                  <input className="input" placeholder="New category name (e.g. Antimalarials)"
+                    value={newDrug.category_name}
+                    disabled={!!newDrug.category_id}
+                    onChange={e => setNewDrug(d => ({ ...d, category_name: e.target.value }))} />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">Unit of Measure</label>
+                    <select className="select" value={newDrug.unit_of_measure} onChange={setND("unit_of_measure")}>
+                      {["tablet","sachet","capsule","vial","bottle","tube","ampoule","piece"].map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="label">Low Stock Alert At</label>
+                    <input className="input" type="number" min="1" value={newDrug.min_stock_alert}
+                      onChange={setND("min_stock_alert")} />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="label">NAFDAC Number <span className="opt-tag">optional</span></label>
+                    <input className="input" placeholder="e.g. A4-1234"
+                      value={newDrug.nafdac_number} onChange={setND("nafdac_number")} />
+                  </div>
+                  <div className="form-group" style={{ display:"flex", alignItems:"flex-end", paddingBottom:8 }}>
+                    <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, color:"var(--ink-2)", cursor:"pointer" }}>
+                      <input type="checkbox" checked={newDrug.requires_prescription}
+                        onChange={e => setNewDrug(d => ({ ...d, requires_prescription: e.target.checked }))} />
+                      Requires prescription
+                    </label>
+                  </div>
+                </div>
+
+                <button className="btn btn-primary" type="submit" disabled={addingDrug} style={{ width:"100%", marginTop:8, height:40 }}>
+                  {addingDrug ? "Adding…" : "✓ Add Drug to Catalog"}
+                </button>
+                <div style={{ fontSize:9, color:"var(--ink-3)", marginTop:10, lineHeight:1.5 }}>
+                  This adds the drug to the catalog only — it won't appear with stock or prices until the store receives a batch against it locally, or you set tier prices once a batch exists.
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
