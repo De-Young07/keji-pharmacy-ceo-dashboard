@@ -102,6 +102,10 @@ export function getCategoryPerf(dateFrom = null, dateTo = null) {
 export const getExpiryAlerts = (days = 90)    => get(`/inventory/expiry-alerts?days=${days}`);
 export const getProducts     = (q = "")       => get(`/inventory/products?q=${encodeURIComponent(q)}`);
 
+// Add new drugs to the catalog remotely
+export const getCategories = ()    => get("/products/categories");
+export const createProduct = (d)   => post("/products", d);
+
 // v2b: updates all 5 price tiers, not just the base price.
 // tiers = { retail_general, retail_subsidized, wholesale_general, wholesale_subsidized, wholesale_bulk }
 export const updateBatchPrice = (batchId, tiers, reason = "") =>
