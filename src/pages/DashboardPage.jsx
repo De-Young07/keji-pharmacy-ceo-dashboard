@@ -210,7 +210,7 @@ export default function DashboardPage() {
   const [staff,      setStaff]      = useState([]);
   const [expiry,     setExpiry]     = useState([]);
   const [products,   setProducts]   = useState([]);
-  const [expiryDays, setExpiryDays] = useState(90);
+  const [expiryDays, setExpiryDays] = useState(180);
 
   // Price edits: { batchId: newPrice }
   const [priceEdits,  setPriceEdits]  = useState({});
@@ -388,6 +388,43 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
+                  {/* Stock valuation — total cost vs selling value */}
+                  {products && products.length > 0 && (() => {
+                    const totalCost    = products.reduce((s,p) => s + (Number(p.current_cost_price||0)    * Number(p.total_stock||0)), 0);
+                    const totalSelling = products.reduce((s,p) => s + (Number(p.price_retail_general||p.current_selling_price||0) * Number(p.total_stock||0)), 0);
+                    const potentialGP  = totalSelling - totalCost;
+                    return (
+                      <div style={{ background:"var(--card)", borderRadius:"var(--radius)", padding:"12px 14px", marginBottom:12, border:"1px solid var(--border)" }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:"var(--ink-3)", textTransform:"uppercase", letterSpacing:".5px", marginBottom:10 }}>
+                          Current Stock Valuation
+                        </div>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+                          <div>
+                            <div style={{ fontSize:9, color:"var(--ink-3)", fontWeight:700, marginBottom:3 }}>TOTAL COST VALUE</div>
+                            <div style={{ fontFamily:"var(--font-data)", fontSize:14, fontWeight:700, color:"var(--red)" }}>
+                              ₦{(totalCost/1000).toFixed(1)}k
+                            </div>
+                            <div style={{ fontSize:9, color:"var(--ink-3)" }}>what stock cost</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize:9, color:"var(--ink-3)", fontWeight:700, marginBottom:3 }}>TOTAL SELLING VALUE</div>
+                            <div style={{ fontFamily:"var(--font-data)", fontSize:14, fontWeight:700, color:"var(--green)" }}>
+                              ₦{(totalSelling/1000).toFixed(1)}k
+                            </div>
+                            <div style={{ fontSize:9, color:"var(--ink-3)" }}>at retail general</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize:9, color:"var(--ink-3)", fontWeight:700, marginBottom:3 }}>POTENTIAL PROFIT</div>
+                            <div style={{ fontFamily:"var(--font-data)", fontSize:14, fontWeight:700, color:"var(--teal)" }}>
+                              ₦{(potentialGP/1000).toFixed(1)}k
+                            </div>
+                            <div style={{ fontSize:9, color:"var(--ink-3)" }}>if all stock sold</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Revenue trend */}
                   <div className="section">
                     <div className="section-hdr">
@@ -427,7 +464,7 @@ export default function DashboardPage() {
               {tab === "expiry" && (
                 <>
                   <div className="range-row">
-                    {[[30,"<30d"],[60,"<60d"],[90,"<90d"]].map(([v,l]) => (
+                    {[[90,"<90d"],[180,"<180d"],[365,"<1yr"]].map(([v,l]) => (
                       <button key={v} className={`range-btn ${expiryDays===v?"active":""}`} onClick={()=>setExpiryDays(v)}>{l}</button>
                     ))}
                   </div>
